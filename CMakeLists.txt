@@ -17,12 +17,34 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
-find_package(opentelemetry-cpp 1.8.1 CONFIG REQUIRED)
+# If opentelemetry-cpp is already present in the parent build (e.g. via
+# FetchContent_MakeAvailable(opentelemetry-cpp)), prefer its targets directly.
+# Otherwise, fall back to finding an installed opentelemetry-cpp package.
+if(NOT TARGET opentelemetry-cpp::api)
+  find_package(opentelemetry-cpp 1.8.1 CONFIG REQUIRED)
+  set(_opentelemetry_cpp_libs ${OPENTELEMETRY_CPP_LIBRARIES})
+  set(_opentelemetry_cpp_includes ${OPENTELEMETRY_CPP_INCLUDE_DIRS})
+else()
+  # These are the canonical exported targets used by opentelemetry-cpp's own
+  # FetchContent / install usage tests.
+  set(_opentelemetry_cpp_libs
+      opentelemetry-cpp::api
+      opentelemetry-cpp::sdk
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::metrics
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::otlp_grpc_exporter
+      opentelemetry-cpp::otlp_grpc_log_record_exporter
+      opentelemetry-cpp::otlp_grpc_metrics_exporter)
+  set(_opentelemetry_cpp_includes "")
+endif()
 
 add_library(${PROJECT_NAME})
-target_include_directories(${PROJECT_NAME} PRIVATE ${OPENTELEMETRY_CPP_INCLUDE_DIRS})
+if(_opentelemetry_cpp_includes)
+  target_include_directories(${PROJECT_NAME} PRIVATE ${_opentelemetry_cpp_includes})
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
-        ${OPENTELEMETRY_CPP_LIBRARIES}
+        ${_opentelemetry_cpp_libs}
         dl
         )
 
@@ -38,7 +60,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         src/utils/socket_carrier.cpp
         )
 
-option(LTTNG_EXPORTER_ENABLED "Whether to use LTTng exporter or not. If set to off, OTLP GRPC default exporter will be used" ON)
+option(LTTNG_EXPORTER_ENABLED "Whether to use LTTng exporter or not. If set to off, OTLP GRPC default exporter will be used" OFF)
 if (LTTNG_EXPORTER_ENABLED)
     find_package(LTTngUST REQUIRED)
     target_link_libraries(${PROJECT_NAME} PRIVATE lttng-ust)

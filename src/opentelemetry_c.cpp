@@ -28,7 +28,9 @@
 #include <opentelemetry/sdk/metrics/meter_provider.h>
 #include <opentelemetry/sdk/metrics/metric_reader.h>
 #include <opentelemetry/sdk/metrics/push_metric_exporter.h>
-#include <opentelemetry/sdk/resource/semantic_conventions.h>
+// opentelemetry-cpp v1.24.0 no longer exposes semantic conventions via
+// opentelemetry/sdk/resource/semantic_conventions.h; use the semconv headers instead.
+#include <opentelemetry/semconv/incubating/service_attributes.h>
 #ifdef BATCH_SPAN_PROCESSOR_ENABLED
 #include <opentelemetry/sdk/trace/batch_span_processor_factory.h>
 #else
@@ -80,12 +82,12 @@ void otelc_init_tracer_provider(const char *service_name,
                                 const char *service_namespace,
                                 const char *service_instance_id) {
   resource::ResourceAttributes attributes = {
-      {resource::SemanticConventions::kServiceName, std::string(service_name)},
-      {resource::SemanticConventions::kServiceVersion,
+      {opentelemetry::semconv::service::kServiceName, std::string(service_name)},
+      {opentelemetry::semconv::service::kServiceVersion,
        std::string(service_version)},
-      {resource::SemanticConventions::kServiceNamespace,
+      {opentelemetry::semconv::service::kServiceNamespace,
        std::string(service_namespace)},
-      {resource::SemanticConventions::kServiceInstanceId,
+      {opentelemetry::semconv::service::kServiceInstanceId,
        std::string(service_instance_id)},
   };
   auto resource = resource::Resource::Create(attributes);
@@ -273,12 +275,12 @@ void otelc_init_metrics_provider(const char *service_name,
                                  int64_t export_interval_millis,
                                  int64_t export_timeout_millis) {
   resource::ResourceAttributes attributes = {
-      {resource::SemanticConventions::kServiceName, std::string(service_name)},
-      {resource::SemanticConventions::kServiceVersion,
+      {opentelemetry::semconv::service::kServiceName, std::string(service_name)},
+      {opentelemetry::semconv::service::kServiceVersion,
        std::string(service_version)},
-      {resource::SemanticConventions::kServiceNamespace,
+      {opentelemetry::semconv::service::kServiceNamespace,
        std::string(service_namespace)},
-      {resource::SemanticConventions::kServiceInstanceId,
+      {opentelemetry::semconv::service::kServiceInstanceId,
        std::string(service_instance_id)},
   };
   auto resource = resource::Resource::Create(attributes);
@@ -314,7 +316,7 @@ void *otelc_create_int64_up_down_counter(const char *name,
   std::string counter_name = std::string(name) + "_up_down_counter";
   std::unique_ptr<metrics_sdk::InstrumentSelector> instrument_selector{
       new metrics_sdk::InstrumentSelector(
-          metrics_sdk::InstrumentType::kUpDownCounter, counter_name)};
+          metrics_sdk::InstrumentType::kUpDownCounter, counter_name, "")};
   std::unique_ptr<metrics_sdk::MeterSelector> meter_selector{
       new metrics_sdk::MeterSelector(name, "1.2.0",
                                      "https://opentelemetry.io/schemas/1.2.0")};
@@ -349,7 +351,7 @@ void *otelc_create_int64_observable_up_down_counter(const char *name,
   std::unique_ptr<metrics_sdk::InstrumentSelector> instrument_selector{
       new metrics_sdk::InstrumentSelector(
           metrics_sdk::InstrumentType::kObservableUpDownCounter,
-          observable_counter_name)};
+          observable_counter_name, "")};
   std::unique_ptr<metrics_sdk::MeterSelector> meter_selector{
       new metrics_sdk::MeterSelector(name, "1.2.0",
                                      "https://opentelemetry.io/schemas/1.2.0")};
@@ -411,12 +413,12 @@ void otelc_init_logger_provider(const char *service_name,
                                 const char *service_namespace,
                                 const char *service_instance_id) {
   resource::ResourceAttributes attributes = {
-      {resource::SemanticConventions::kServiceName, std::string(service_name)},
-      {resource::SemanticConventions::kServiceVersion,
+      {opentelemetry::semconv::service::kServiceName, std::string(service_name)},
+      {opentelemetry::semconv::service::kServiceVersion,
        std::string(service_version)},
-      {resource::SemanticConventions::kServiceNamespace,
+      {opentelemetry::semconv::service::kServiceNamespace,
        std::string(service_namespace)},
-      {resource::SemanticConventions::kServiceInstanceId,
+      {opentelemetry::semconv::service::kServiceInstanceId,
        std::string(service_instance_id)},
   };
   auto resource = resource::Resource::Create(attributes);
