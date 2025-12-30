@@ -50,9 +50,11 @@
 #include <opentelemetry/trace/tracer.h>
 
 #include <cstddef>
+#include <cstdio>
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace context = opentelemetry::context;
 namespace metrics_sdk = opentelemetry::sdk::metrics;
@@ -161,6 +163,13 @@ void otelc_set_double_attr(void *attr_map, const char *key, double value) {
 
 void otelc_set_str_attr(void *attr_map, const char *key, const char *value) {
   (*static_cast<AttrMap *>(attr_map))[key] = value;
+}
+
+void otelc_set_bytes_attr(void *attr_map, const char *key, const uint8_t *value, size_t length) {
+  auto *attr_map_p = static_cast<AttrMap *>(attr_map);
+  // Convert bytes to std::vector<uint8_t> for AttributeValue
+  std::vector<uint8_t> bytes_vec(value, value + length);
+  (*attr_map_p)[key] = bytes_vec;
 }
 
 void otelc_destroy_attr_map(void *attr_map) {

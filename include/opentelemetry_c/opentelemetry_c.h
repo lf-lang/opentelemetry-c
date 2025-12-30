@@ -1,6 +1,7 @@
 #ifndef OPENTELEMETRY_C_H
 #define OPENTELEMETRY_C_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -84,6 +85,18 @@ void otelc_set_double_attr(void *attr_map, const char *key, double value);
  * See https://opentelemetry.io/docs/reference/specification/common/#attribute
  */
 void otelc_set_str_attr(void *attr_map, const char *key, const char *value);
+
+/**
+ * @brief Set a bytes attribute in the attribute map
+ * 
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ * 
+ * @param attr_map The attribute map
+ * @param key The attribute key
+ * @param value Pointer to the bytes data
+ * @param length Length of the bytes data
+ */
+void otelc_set_bytes_attr(void *attr_map, const char *key, const uint8_t *value, size_t length);
 
 /**
  * @brief Deallocate map memory
