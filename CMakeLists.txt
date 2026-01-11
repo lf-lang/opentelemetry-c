@@ -6,6 +6,8 @@ project(opentelemetry-c
         LANGUAGES C CXX
         )
 
+include(GNUInstallDirs)
+
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS YES CACHE BOOL "Export all symbols")
 
 set(DEFAULT_BUILD_TYPE "Release")
@@ -22,38 +24,39 @@ endif ()
 # Otherwise, fall back to finding an installed opentelemetry-cpp package.
 if(NOT TARGET opentelemetry-cpp::api)
   find_package(opentelemetry-cpp 1.8.1 CONFIG REQUIRED)
-  set(_opentelemetry_cpp_libs ${OPENTELEMETRY_CPP_LIBRARIES})
-  set(_opentelemetry_cpp_includes ${OPENTELEMETRY_CPP_INCLUDE_DIRS})
-else()
-  # These are the canonical exported targets used by opentelemetry-cpp's own
-  # FetchContent / install usage tests.
-  set(_opentelemetry_cpp_libs
-      opentelemetry-cpp::api
-      opentelemetry-cpp::sdk
-      opentelemetry-cpp::trace
-      opentelemetry-cpp::metrics
-      opentelemetry-cpp::logs
-      opentelemetry-cpp::otlp_grpc_exporter
-      opentelemetry-cpp::otlp_grpc_log_record_exporter
-      opentelemetry-cpp::otlp_grpc_metrics_exporter)
-  set(_opentelemetry_cpp_includes "")
 endif()
 
+# Canonical exported targets used by opentelemetry-cpp's own FetchContent / install usage.
+set(_opentelemetry_cpp_libs
+    opentelemetry-cpp::api
+    opentelemetry-cpp::sdk
+    opentelemetry-cpp::trace
+    opentelemetry-cpp::metrics
+    opentelemetry-cpp::logs
+    opentelemetry-cpp::otlp_grpc_exporter
+    opentelemetry-cpp::otlp_grpc_log_record_exporter
+    opentelemetry-cpp::otlp_grpc_metrics_exporter)
+
 add_library(${PROJECT_NAME})
-if(_opentelemetry_cpp_includes)
-  target_include_directories(${PROJECT_NAME} PRIVATE ${_opentelemetry_cpp_includes})
-endif()
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME} PRIVATE
         ${_opentelemetry_cpp_libs}
-        dl
         )
+
+# Some platforms provide dl functionality without a separate libdl (e.g., macOS).
+if(UNIX AND NOT APPLE)
+  target_link_libraries(${PROJECT_NAME} PRIVATE dl)
+endif()
 
 option(BATCH_SPAN_PROCESSOR_ENABLED "Whether to use Batching Span Processor or Simple Span Processor" OFF)
 if (BATCH_SPAN_PROCESSOR_ENABLED)
     target_compile_definitions(${PROJECT_NAME} PRIVATE BATCH_SPAN_PROCESSOR_ENABLED)
 endif ()
 
-target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_include_directories(${PROJECT_NAME} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 target_sources(${PROJECT_NAME} PRIVATE
         src/opentelemetry_c.cpp
         src/utils/map.cpp
@@ -82,7 +85,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
         VERSION ${PROJECT_VERSION}
         SOVERSION 1)
 
-install(TARGETS ${PROJECT_NAME} EXPORT "${PROJECT_NAME}-target"
+install(TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
