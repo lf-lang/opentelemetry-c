@@ -48,9 +48,12 @@
 #include <opentelemetry/trace/span.h>
 #include <opentelemetry/trace/span_metadata.h>
 #include <opentelemetry/trace/tracer.h>
+#include <opentelemetry/nostd/span.h>
+#include <opentelemetry/nostd/string_view.h>
 
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <string>
@@ -66,7 +69,15 @@ namespace trace_sdk = opentelemetry::sdk::trace;
 namespace logs = opentelemetry::logs;
 namespace logs_sdk = opentelemetry::sdk::logs;
 
-using AttrMap = std::map<std::string, opentelemetry::common::AttributeValue>;
+struct AttrValueHolder
+{
+  opentelemetry::common::AttributeValue value;
+  // Optional owned backing storage required for some AttributeValue variants
+  // (e.g., span over string_view array).
+  std::shared_ptr<void> owned;
+};
+
+using AttrMap = std::map<std::string, AttrValueHolder>;
 
 struct SpanAndContext {
   nostd::shared_ptr<trace::Span> span;
@@ -142,34 +153,82 @@ void otelc_destroy_tracer(void *tracer) {
 void *otelc_create_attr_map() { return new AttrMap; }
 
 void otelc_set_bool_attr(void *attr_map, const char *key, int boolean_value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = !!boolean_value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = !!boolean_value;
+  slot.owned.reset();
 }
 
 void otelc_set_int32_t_attr(void *attr_map, const char *key, int32_t value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
+}
+
+void otelc_set_uint32_t_attr(void *attr_map, const char *key, uint32_t value) {
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
 }
 
 void otelc_set_int64_t_attr(void *attr_map, const char *key, int64_t value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
 }
 
 void otelc_set_uint64_t_attr(void *attr_map, const char *key, uint64_t value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
 }
 
 void otelc_set_double_attr(void *attr_map, const char *key, double value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
 }
 
 void otelc_set_str_attr(void *attr_map, const char *key, const char *value) {
-  (*static_cast<AttrMap *>(attr_map))[key] = value;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = value;
+  slot.owned.reset();
+}
+
+void otelc_set_string_view_attr(void *attr_map, const char *key, const char *value, size_t length) {
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = opentelemetry::nostd::string_view(value, length);
+  slot.owned.reset();
+}
+
+void otelc_set_string_array_attr(void *attr_map,
+                                 const char *key,
+                                 const char *const *values,
+                                 const size_t *lengths,
+                                 size_t count)
+{
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  auto vec   = std::make_shared<std::vector<opentelemetry::nostd::string_view>>();
+  vec->reserve(count);
+  for (size_t i = 0; i < count; i++)
+  {
+    if (values == nullptr || values[i] == nullptr)
+    {
+      vec->push_back(opentelemetry::nostd::string_view());
+      continue;
+    }
+    const size_t len = (lengths != nullptr) ? lengths[i] : std::strlen(values[i]);
+    vec->push_back(opentelemetry::nostd::string_view(values[i], len));
+  }
+
+  slot.owned = vec;
+  slot.value = opentelemetry::nostd::span<const opentelemetry::nostd::string_view>(vec->data(),
+                                                                                   vec->size());
 }
 
 void otelc_set_bytes_attr(void *attr_map, const char *key, const uint8_t *value, size_t length) {
-  auto *attr_map_p = static_cast<AttrMap *>(attr_map);
-  // Convert bytes to std::vector<uint8_t> for AttributeValue
-  std::vector<uint8_t> bytes_vec(value, value + length);
-  (*attr_map_p)[key] = bytes_vec;
+  auto &slot = (*static_cast<AttrMap *>(attr_map))[key];
+  slot.value = opentelemetry::nostd::span<const uint8_t>(value, length);
+  slot.owned.reset();
 }
 
 void otelc_destroy_attr_map(void *attr_map) {
@@ -261,14 +320,19 @@ void otelc_set_span_attrs(void *span, void *attr_map) {
   auto *span_and_context = static_cast<SpanAndContext *>(span);
   auto *attr_map_p = static_cast<AttrMap *>(attr_map);
   for (auto const &map_entry : *attr_map_p) {
-    span_and_context->span->SetAttribute(map_entry.first, map_entry.second);
+    span_and_context->span->SetAttribute(map_entry.first, map_entry.second.value);
   }
 }
 
 void otelc_add_span_event(void *span, const char *event_name, void *attr_map) {
   auto *span_and_context = static_cast<SpanAndContext *>(span);
   auto *attr_map_p = static_cast<AttrMap *>(attr_map);
-  span_and_context->span->AddEvent(event_name, *attr_map_p);
+  // Convert to the map type expected by the OpenTelemetry API.
+  std::map<std::string, opentelemetry::common::AttributeValue> attrs;
+  for (auto const &map_entry : *attr_map_p) {
+    attrs.emplace(map_entry.first, map_entry.second.value);
+  }
+  span_and_context->span->AddEvent(event_name, attrs);
 }
 
 void otelc_end_span(void *span) {

@@ -69,6 +69,11 @@ void otelc_set_int32_t_attr(void *attr_map, const char *key, int32_t value);
 /**
  * See https://opentelemetry.io/docs/reference/specification/common/#attribute
  */
+void otelc_set_uint32_t_attr(void *attr_map, const char *key, uint32_t value);
+
+/**
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ */
 void otelc_set_int64_t_attr(void *attr_map, const char *key, int64_t value);
 
 /**
@@ -85,6 +90,39 @@ void otelc_set_double_attr(void *attr_map, const char *key, double value);
  * See https://opentelemetry.io/docs/reference/specification/common/#attribute
  */
 void otelc_set_str_attr(void *attr_map, const char *key, const char *value);
+
+/**
+ * @brief Set a string_view attribute in the attribute map (non-owning).
+ *
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ *
+ * @param attr_map The attribute map
+ * @param key The attribute key
+ * @param value Pointer to the string bytes (may not be null-terminated)
+ * @param length Length of the string in bytes (excluding any null terminator)
+ */
+void otelc_set_string_view_attr(void *attr_map, const char *key, const char *value, size_t length);
+
+/**
+ * @brief Set a string array attribute in the attribute map.
+ *
+ * This sets an attribute of type array-of-strings.
+ *
+ * IMPORTANT: The memory backing `values` and the strings they point to must
+ * remain valid until the attribute map is consumed by `otelc_set_span_attrs()`
+ * / `otelc_add_span_event()`.
+ *
+ * @param attr_map The attribute map
+ * @param key The attribute key
+ * @param values Array of pointers to string bytes
+ * @param lengths Optional array of string lengths (may be NULL to use strlen)
+ * @param count Number of strings in the array
+ */
+void otelc_set_string_array_attr(void *attr_map,
+                                 const char *key,
+                                 const char *const *values,
+                                 const size_t *lengths,
+                                 size_t count);
 
 /**
  * @brief Set a bytes attribute in the attribute map
