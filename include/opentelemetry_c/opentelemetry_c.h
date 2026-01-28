@@ -74,6 +74,11 @@ void otelc_set_int64_t_attr(void *attr_map, const char *key, int64_t value);
 /**
  * See https://opentelemetry.io/docs/reference/specification/common/#attribute
  */
+void otelc_set_uint32_t_attr(void *attr_map, const char *key, uint32_t value);
+
+/**
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ */
 void otelc_set_uint64_t_attr(void *attr_map, const char *key, uint64_t value);
 
 /**
@@ -85,6 +90,19 @@ void otelc_set_double_attr(void *attr_map, const char *key, double value);
  * See https://opentelemetry.io/docs/reference/specification/common/#attribute
  */
 void otelc_set_str_attr(void *attr_map, const char *key, const char *value);
+
+/**
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ */
+void otelc_set_string_view_attr(void *attr_map, const char *key, const char *value, size_t length);
+
+/**
+ * See https://opentelemetry.io/docs/reference/specification/common/#attribute
+ */
+void otelc_set_span_of_string_view_attr(void *attr_map,
+                                        const char *key,
+                                        const char *const *values,
+                                        size_t count);
 
 /**
  * @brief Set a bytes attribute in the attribute map
